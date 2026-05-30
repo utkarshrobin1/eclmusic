@@ -1,10 +1,10 @@
-pyrogram==2.0.106
+hydrogram
 TgCrypto==1.2.5
 py-tgcalls
 motor==3.4.0
 pymongo==4.7.2
 redis[hiredis]==5.0.4
-yt-dlp==2024.5.27
+yt-dlp
 aiohttp==3.9.5
 Pillow==10.3.0
 lyricsgenius==3.0.1
