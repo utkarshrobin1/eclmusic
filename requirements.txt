@@ -1,7 +1,6 @@
-
 pyrogram==2.0.106
 TgCrypto==1.2.5
-pytgcalls==2.1.0
+py-tgcalls
 motor==3.4.0
 pymongo==4.7.2
 redis[hiredis]==5.0.4
