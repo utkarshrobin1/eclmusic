@@ -7,7 +7,7 @@ import os
 import time
 from pyrogram import Client, filters
 from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup
-from pytgcalls.types import AudioPiped, AudioParameters, VideoParameters, HighQualityAudio
+from pytgcalls.types import MediaStream, AudioQuality, VideoQuality
 from pytgcalls.exceptions import NoActiveGroupCall
 
 from core.client import bot, call_py
@@ -143,14 +143,13 @@ async def _stream_track(chat_id: int, track: dict, session: dict):
     try:
         await call_py.join_group_call(
             chat_id,
-            AudioPiped(audio_path, HighQualityAudio()),
-            stream_type=None,
+            MediaStream(audio_path, audio_quality=AudioQuality.HIGH),
         )
     except Exception:
         try:
             await call_py.change_stream(
                 chat_id,
-                AudioPiped(audio_path, HighQualityAudio()),
+                MediaStream(audio_path, audio_quality=AudioQuality.HIGH),
             )
         except Exception as e:
             logger.error(f"Stream error chat {chat_id}: {e}")
@@ -511,3 +510,4 @@ async def on_stream_end(_, update):
             await bot.send_message(chat_id, "✅ Queue finished. Thanks for listening! 🎵")
         except Exception:
             pass
+                
