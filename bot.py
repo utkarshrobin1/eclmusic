@@ -1,6 +1,7 @@
 """Elite Musico — Main entry point."""
 import asyncio
 import importlib
+import signal
 
 from core.client import bot, userbot, call_py, start_clients, stop_clients
 from core.database import connect_db, disconnect_db
@@ -35,12 +36,10 @@ async def main():
     logger.info(f" {BOT_NAME} Starting Up")
     logger.info(f"{'='*50}")
 
-    # Connect services
     await connect_db()
     await connect_redis()
     await start_clients()
 
-    # Start background tasks
     from plugins.autoleave import auto_leave_loop, scheduled_play_loop
     asyncio.create_task(auto_leave_loop())
     asyncio.create_task(scheduled_play_loop())
@@ -49,18 +48,19 @@ async def main():
     logger.info(f"Bot started as @{me.username} ({me.id})")
     logger.info(f"{BOT_NAME} is ready! Press Ctrl+C to stop.")
 
-    # Use hydrogram's idle to keep the bot running and receiving updates
-    from hydrogram import idle
-    try:
-        await idle()
-    except (KeyboardInterrupt, SystemExit):
-        pass
-    finally:
-        logger.info("Shutting down...")
-        await stop_clients()
-        await disconnect_db()
-        await disconnect_redis()
-        logger.info(f"{BOT_NAME} stopped cleanly.")
+    stop_event = asyncio.Event()
+
+    loop = asyncio.get_event_loop()
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        loop.add_signal_handler(sig, stop_event.set)
+
+    await stop_event.wait()
+
+    logger.info("Shutting down...")
+    await stop_clients()
+    await disconnect_db()
+    await disconnect_redis()
+    logger.info(f"{BOT_NAME} stopped cleanly.")
 
 
 if __name__ == "__main__":
