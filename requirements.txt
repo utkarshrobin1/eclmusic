@@ -1,7 +1,0 @@
-yt-dlp>=2025.05.22
-pyrogram
-py-tgcalls
-tgcrypto
-static-ffmpeg
-psutil
-python-dotenv
