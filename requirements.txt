@@ -1,5 +1,5 @@
 hydrogram
-TgCrypto==1.2.5
+TgCrypto
 py-tgcalls
 motor==3.4.0
 pymongo==4.7.2
