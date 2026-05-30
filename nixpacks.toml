@@ -1,13 +1,10 @@
-# Railway uses Nixpacks to build your app.
-# This installs FFmpeg and other system packages automatically.
-
 [phases.setup]
 nixPkgs = ["ffmpeg", "python311", "python311Packages.pip"]
 
 [phases.install]
 cmds = [
-  "python -m venv /app/venv",
-  "/app/venv/bin/pip install -r requirements.txt"
+    "python -m venv /app/venv",
+    "/app/venv/bin/pip install --no-cache-dir -r requirements.txt"
 ]
 
 [start]
