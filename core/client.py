@@ -1,6 +1,5 @@
 from pyrogram import Client
 from pytgcalls import PyTgCalls
-from pytgcalls.types import AudioPiped, AudioParameters
 from config import API_ID, API_HASH, BOT_TOKEN, STRING_SESSION, BOT_NAME
 from core.logger import logger
 
@@ -39,3 +38,4 @@ async def stop_clients():
     await bot.stop()
     await userbot.stop()
     logger.info(f"{BOT_NAME} stopped.")
+    
