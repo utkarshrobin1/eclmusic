@@ -1,6 +1,6 @@
 from functools import wraps
-from pyrogram import Client
-from pyrogram.types import Message, CallbackQuery
+from hydrogram import Client
+from hydrogram.types import Message, CallbackQuery
 from core.database import get_group_settings, audit_log
 from config import OWNER_ID
 from core.logger import logger
