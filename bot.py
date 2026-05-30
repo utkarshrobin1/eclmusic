@@ -1,8 +1,6 @@
 """Elite Musico — Main entry point."""
 import asyncio
 import importlib
-import os
-import sys
 
 from core.client import bot, userbot, call_py, start_clients, stop_clients
 from core.database import connect_db, disconnect_db
@@ -51,9 +49,10 @@ async def main():
     logger.info(f"Bot started as @{me.username} ({me.id})")
     logger.info(f"{BOT_NAME} is ready! Press Ctrl+C to stop.")
 
-    # Run until interrupted
+    # Use hydrogram's idle to keep the bot running and receiving updates
+    from hydrogram import idle
     try:
-        await asyncio.Event().wait()
+        await idle()
     except (KeyboardInterrupt, SystemExit):
         pass
     finally:
