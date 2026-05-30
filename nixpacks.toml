@@ -2,17 +2,17 @@
 nixPkgs = [
     "ffmpeg",
     "python311",
-    "python311Packages.pip",
-    "gcc",
-    "gcc.cc.lib",
-    "openssl",
-    "libffi"
-]
-
-[phases.install]
-cmds = [
-    "pip install --break-system-packages --upgrade pip setuptools wheel",
-    "pip install --break-system-packages -r requirements.txt"
+    "python311Packages.pyrogram",
+    "python311Packages.pytgcalls",
+    "python311Packages.tgcrypto",
+    "python311Packages.motor",
+    "python311Packages.pymongo",
+    "python311Packages.redis",
+    "python311Packages.yt-dlp",
+    "python311Packages.aiohttp",
+    "python311Packages.pillow",
+    "python311Packages.spotipy",
+    "python311Packages.python-dotenv"
 ]
 
 [start]
