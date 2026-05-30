@@ -1,7 +1,7 @@
 """Admin & Permission System — roles, DJ mode, command lock, blacklist, settings, broadcast, audit."""
 import asyncio
-from pyrogram import Client, filters
-from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup
+from hydrogram import Client, filters
+from hydrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup
 
 from core.client import bot
 from core.database import (

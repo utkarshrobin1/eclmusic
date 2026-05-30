@@ -5,8 +5,8 @@ pause/resume, stop, skip, loop, shuffle, volume, mute/unmute.
 import asyncio
 import os
 import time
-from pyrogram import Client, filters
-from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup
+from hydrogram import Client, filters
+from hydrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup
 from pytgcalls.types import MediaStream, AudioQuality, VideoQuality
 from pytgcalls.exceptions import NoActiveGroupCall
 
@@ -160,6 +160,10 @@ async def _stream_track(chat_id: int, track: dict, session: dict):
     session["start_time"] = time.time()
     await update_session(chat_id, session)
     await set_now_playing(chat_id, track)
+
+    # Record activity for auto-leave tracker
+    from plugins.autoleave import record_activity
+    record_activity(chat_id)
 
     # DB logging
     await add_to_history(chat_id, track)
@@ -486,8 +490,11 @@ async def cmd_np(client: Client, msg: Message):
 
 # ─── PyTgCalls event — stream ended ──────────────────────────────────────────
 
-@call_py.on_stream_end()
-async def on_stream_end(_, update):
+@call_py.on_update()
+async def on_stream_end(client, update):
+    from pytgcalls.types import StreamEnded
+    if not isinstance(update, StreamEnded):
+        return
     chat_id = update.chat_id
     session = await get_session(chat_id)
     loop_mode = session.get("loop_mode", "none")
@@ -510,4 +517,3 @@ async def on_stream_end(_, update):
             await bot.send_message(chat_id, "✅ Queue finished. Thanks for listening! 🎵")
         except Exception:
             pass
-                

@@ -1,7 +1,7 @@
 """Central inline button callbacks — NP controls, queue nav, like."""
 import time
-from pyrogram import Client, filters
-from pyrogram.types import CallbackQuery
+from hydrogram import Client, filters
+from hydrogram.types import CallbackQuery
 
 from core.client import bot, call_py
 from core.cache import (

@@ -1,7 +1,7 @@
 """Start, help, ping, and general commands."""
 import time
-from pyrogram import Client, filters
-from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup
+from hydrogram import Client, filters
+from hydrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup
 
 from core.client import bot
 from core.database import get_group_settings, get_total_chats

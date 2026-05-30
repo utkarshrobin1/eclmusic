@@ -1,6 +1,6 @@
 """Queue management — view, add-next, remove, clear, reorder, jump, playlist save/load."""
-from pyrogram import Client, filters
-from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup
+from hydrogram import Client, filters
+from hydrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup
 
 from core.client import bot
 from core.cache import (
@@ -138,7 +138,7 @@ async def cmd_jump(client: Client, msg: Message):
 
 # ─── Playlist save/load ───────────────────────────────────────────────────────
 
-@bot.on_message(filters.command(["saveplaylist", "sp"]) & filters.private | filters.command(["saveplaylist", "sp"]) & filters.group)
+@bot.on_message(filters.command(["saveplaylist", "sp"]) & (filters.private | filters.group))
 async def cmd_save_playlist(client: Client, msg: Message):
     args = msg.command[1:]
     if not args:
@@ -186,7 +186,7 @@ async def cmd_load_playlist(client: Client, msg: Message):
     await msg.reply(f"📦 Loaded **{min(len(tracks), remaining)}** tracks from playlist **{name}**!")
 
 
-@bot.on_message(filters.command(["myplaylists", "playlists"]) & filters.private | filters.command(["myplaylists"]) & filters.group)
+@bot.on_message(filters.command(["myplaylists", "playlists"]) & (filters.private | filters.group))
 async def cmd_my_playlists(client: Client, msg: Message):
     uid = msg.from_user.id if msg.from_user else 0
     names = await list_playlists(uid)

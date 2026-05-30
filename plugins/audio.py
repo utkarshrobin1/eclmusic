@@ -1,6 +1,6 @@
 """Audio processing & effects — EQ, bass boost, nightcore, karaoke, reverb, speed, pitch, 3D, normalizer."""
-from pyrogram import Client, filters
-from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup
+from hydrogram import Client, filters
+from hydrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup
 
 from core.client import bot
 from core.cache import get_session, update_session, get_now_playing

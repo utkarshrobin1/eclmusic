@@ -1,6 +1,6 @@
 """Community & Vote Features — vote skip, song reactions, leaderboard, lucky, share."""
-from pyrogram import Client, filters
-from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup
+from hydrogram import Client, filters
+from hydrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup
 
 from core.client import bot
 from core.cache import (
@@ -17,8 +17,8 @@ from core.logger import logger
 
 async def _count_vc_members(client: Client, chat_id: int) -> int:
     try:
-        members = await client.get_chat_members(chat_id)
-        return max(sum(1 for _ in members), 2)
+        count = await client.get_chat_members_count(chat_id)
+        return max(count, 2)
     except Exception:
         return 3
 
