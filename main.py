@@ -132,12 +132,35 @@ async def extract_song(query: str) -> dict:
         with YoutubeDL(YDL_OPTS) as ydl:
             sq = query if query.startswith("http") else f"ytsearch1:{query}"
             info = ydl.extract_info(sq, download=True)
+
+            # Unwrap search results safely
             if "entries" in info:
-                info = info["entries"][0]
+                entries = [e for e in (info["entries"] or []) if e]
+                if not entries:
+                    raise ValueError("No results found for that query.")
+                info = entries[0]
+
+            video_id = info.get("id", "")
+            title    = info.get("title", "Unknown")
+            thumb    = info.get("thumbnail", "https://telegra.ph/file/default.jpg")
+
+            # prepare_filename can have wrong ext after conversion —
+            # find the actual downloaded file by video ID instead.
+            base = os.path.join("downloads", video_id)
+            filepath = None
+            for f in os.listdir("downloads"):
+                if f.startswith(video_id):
+                    filepath = os.path.abspath(os.path.join("downloads", f))
+                    break
+
+            # Fallback to prepare_filename if scan fails
+            if not filepath:
+                filepath = os.path.abspath(ydl.prepare_filename(info))
+
             return {
-                "title":     info.get("title", "Unknown"),
-                "thumbnail": info.get("thumbnail", "https://telegra.ph/file/default.jpg"),
-                "file":      os.path.abspath(ydl.prepare_filename(info)),
+                "title":     title,
+                "thumbnail": thumb,
+                "file":      filepath,
                 "duration":  info.get("duration", 0),
             }
     return await asyncio.to_thread(run)
@@ -535,149 +558,4 @@ async def history_cmd(client, message: Message):
 # ── /ping ─────────────────────────────────────────────────────────────────────
 @bot.on_message(filters.command("ping"))
 async def ping_cmd(client, message: Message):
-    start = time.time()
-    m     = await message.reply_text("🏓 Pinging...")
-    ms    = round((time.time() - start) * 1000)
-    await m.edit_text(f"🏓 **Pong!** `{ms}ms`")
-
-# ── /stats ────────────────────────────────────────────────────────────────────
-@bot.on_message(filters.command("stats"))
-async def stats_cmd(client, message: Message):
-    uptime = int(time.time() - START_TIME)
-    h, rem = divmod(uptime, 3600)
-    m, s   = divmod(rem, 60)
-    await message.reply_text(
-        f"📊 **Elite Musico Stats**\n\n"
-        f"⏱ Uptime: `{h}h {m}m {s}s`\n"
-        f"👥 Chats: `{len(TRACKED_CHATS)}`\n"
-        f"🎵 Active VC: `{sum(PLAYING.values())}`\n"
-        f"💾 RAM: `{psutil.virtual_memory().percent}%`\n"
-        f"🖥 CPU: `{psutil.cpu_percent()}%`"
-    )
-
-# ══════════════════════════════════════════════════════════════════════════════
-# CALLBACK QUERIES
-# ══════════════════════════════════════════════════════════════════════════════
-@bot.on_callback_query()
-async def callback(client, query: CallbackQuery):
-    data    = query.data
-    cid     = query.message.chat.id
-    user_id = query.from_user.id
-
-    # ── Inline control buttons ────────────────────────────────────────────────
-    try:
-        if data == "pause":
-            await call_py.pause_stream(cid)
-            await query.answer("⏸ Paused")
-
-        elif data == "resume":
-            await call_py.resume_stream(cid)
-            await query.answer("▶️ Resumed")
-
-        elif data == "skip":
-            LOOP[cid] = "off"
-            await play_next(cid)
-            await query.answer("⏭ Skipped")
-
-        elif data == "stop":
-            QUEUE[cid]   = []
-            PLAYING[cid] = False
-            LOOP[cid]    = "off"
-            NOW_PLAYING.pop(cid, None)
-            await call_py.leave_call(cid)
-            await query.answer("⏹ Stopped")
-
-        elif data == "loop":
-            modes   = ["off", "track", "queue"]
-            current = LOOP.get(cid, "off")
-            nxt     = modes[(modes.index(current) + 1) % len(modes)]
-            LOOP[cid] = nxt
-            labels   = {"off": "🔁 Loop Off", "track": "🔂 Loop: Track", "queue": "🔁 Loop: Queue"}
-            await query.answer(labels[nxt])
-            # Update button text in the message
-            try:
-                await query.message.edit_reply_markup(get_control_markup(cid))
-            except Exception:
-                pass
-
-        elif data == "show_help":
-            await query.message.reply_text(HELP_TEXT)
-            await query.answer()
-
-        # ── Search pick ───────────────────────────────────────────────────────
-        elif data.startswith("sp:"):
-            _, req_uid, idx_str = data.split(":", 2)
-            if str(user_id) != req_uid:
-                return await query.answer("❌ This search belongs to someone else.", show_alert=True)
-
-            results = SEARCH_CACHE.get(int(req_uid), [])
-            idx     = int(idx_str)
-            if not results or idx >= len(results):
-                return await query.answer("❌ Result expired. Search again.", show_alert=True)
-
-            chosen = results[idx]
-            await query.answer(f"🎵 Loading: {chosen['title'][:40]}...")
-            await query.message.delete()
-
-            msg = await query.message.reply_text("🎵 Loading selected song...")
-            try:
-                data_song = await extract_song(chosen["url"])
-                if PLAYING.get(cid):
-                    QUEUE.setdefault(cid, []).append(data_song)
-                    await msg.edit_text(
-                        f"📝 **Added to Queue** #{len(QUEUE[cid])}\n\n{data_song['title']}"
-                    )
-                else:
-                    await call_py.play(
-                        cid,
-                        MediaStream(data_song["file"], video_flags=MediaStream.Flags.IGNORE)
-                    )
-                    PLAYING[cid]     = True
-                    NOW_PLAYING[cid] = data_song
-                    push_history(cid, data_song)
-                    await msg.delete()
-                    await query.message.reply_photo(
-                        photo=data_song["thumbnail"],
-                        caption=f"▶️ **Now Playing**\n\n{data_song['title']}",
-                        reply_markup=get_control_markup(cid)
-                    )
-            except Exception as e:
-                await msg.edit_text(f"❌ {e}")
-
-        else:
-            await query.answer()
-
-    except Exception as e:
-        await query.answer(str(e), show_alert=True)
-
-# ── Main ──────────────────────────────────────────────────────────────────────
-async def main():
-    print("🎵 Elite Musico starting...")
-    await bot.start()
-    await user.start()
-    await call_py.start()
-
-    await bot.set_bot_commands([
-        BotCommand("play",      "Play music from YouTube"),
-        BotCommand("search",    "Search & pick from top 5 results"),
-        BotCommand("np",        "Now playing card"),
-        BotCommand("queue",     "Show current queue"),
-        BotCommand("skip",      "Skip current song"),
-        BotCommand("stop",      "Stop & leave voice chat"),
-        BotCommand("pause",     "Pause playback"),
-        BotCommand("resume",    "Resume playback"),
-        BotCommand("loop",      "Toggle loop mode"),
-        BotCommand("shuffle",   "Shuffle queue"),
-        BotCommand("remove",    "Remove song from queue"),
-        BotCommand("vol",       "Set volume (1-200)"),
-        BotCommand("history",   "Last 10 played songs"),
-        BotCommand("stats",     "Bot statistics"),
-        BotCommand("ping",      "Check latency"),
-        BotCommand("help",      "All commands"),
-    ])
-
-    print("✅ Elite Musico started!")
-    await idle()
-
-if __name__ == "__main__":
-    loop.run_until_complete(main())
+    start = time.tim
