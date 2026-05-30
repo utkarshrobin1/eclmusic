@@ -34,7 +34,16 @@ async def start_clients():
 
 
 async def stop_clients():
-    await call_py.stop()
-    await bot.stop()
-    await userbot.stop()
+    try:
+        await call_py.stop()
+    except Exception:
+        pass
+    try:
+        await bot.stop()
+    except Exception:
+        pass
+    try:
+        await userbot.stop()
+    except Exception:
+        pass
     logger.info(f"{BOT_NAME} stopped.")
