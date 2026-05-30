@@ -1,8 +1,19 @@
 [phases.setup]
-nixPkgs = ["ffmpeg", "python311", "python311Packages.pip"]
+nixPkgs = [
+    "ffmpeg",
+    "python311",
+    "python311Packages.pip",
+    "gcc",
+    "gcc.cc.lib",
+    "openssl",
+    "libffi"
+]
 
 [phases.install]
-cmds = ["pip install --break-system-packages -r requirements.txt"]
+cmds = [
+    "pip install --break-system-packages --upgrade pip setuptools wheel",
+    "pip install --break-system-packages -r requirements.txt"
+]
 
 [start]
 cmd = "python bot.py"
