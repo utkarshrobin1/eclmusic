@@ -1,7 +1,7 @@
 # ─── Telegram ────────────────────────────────────────────────────────────────
 pyrogram==2.0.106
 TgCrypto==1.2.5
-pytgcalls==3.0.0.dev24
+pytgcalls==5.10.1  # Changed from dev24 to stable version
 
 # ─── Database ────────────────────────────────────────────────────────────────
 motor==3.4.0
@@ -20,9 +20,6 @@ lyricsgenius==3.0.1
 
 # ─── Spotify ─────────────────────────────────────────────────────────────────
 spotipy==2.23.0
-
-# ─── ACRCloud (Song Recognition) ─────────────────────────────────────────────
-# acrcloud-sdk==1.0.0   # install manually if needed: pip install pyacrcloud
 
 # ─── Utilities ───────────────────────────────────────────────────────────────
 python-dotenv==1.0.1
