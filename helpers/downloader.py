@@ -6,6 +6,18 @@ import yt_dlp
 from config import CACHE_DIR, MAX_CACHE_SIZE_MB
 from core.logger import logger
 
+import os as _os
+
+# Use cookies.txt if present (helps bypass YouTube IP blocks on servers)
+_COOKIES_FILE = "cookies.txt"
+_COOKIES = _COOKIES_FILE if _os.path.exists(_COOKIES_FILE) else None
+
+_COMMON_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+}
+
 YTDLP_OPTS_AUDIO = {
     "format": "bestaudio/best",
     "outtmpl": f"{CACHE_DIR}/%(id)s.%(ext)s",
@@ -21,13 +33,9 @@ YTDLP_OPTS_AUDIO = {
     "skip_unavailable_fragments": True,
     "ignoreerrors": False,
     "source_address": "0.0.0.0",
-    "http_headers": {
-        "User-Agent": "Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    },
-    # Use piped/invidious as fallback if direct YouTube fails
+    "http_headers": _COMMON_HEADERS,
     "postprocessors": [],
+    **({"cookiefile": _COOKIES} if _COOKIES else {}),
 }
 
 YTDLP_SEARCH_OPTS = {
@@ -36,9 +44,8 @@ YTDLP_SEARCH_OPTS = {
     "noplaylist": True,
     "extract_flat": "in_playlist",
     "skip_download": True,
-    "http_headers": {
-        "User-Agent": "Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36",
-    },
+    "http_headers": _COMMON_HEADERS,
+    **({"cookiefile": _COOKIES} if _COOKIES else {}),
 }
 
 
@@ -68,30 +75,39 @@ def _manage_cache():
 async def search_youtube(query: str, limit: int = 5) -> list[dict]:
     loop = asyncio.get_event_loop()
 
-    def _search():
-        opts = {**YTDLP_SEARCH_OPTS, "default_search": f"ytsearch{limit}"}
+    def _search(prefix):
+        opts = {**YTDLP_SEARCH_OPTS, "default_search": f"{prefix}{limit}"}
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(query, download=False)
             entries = info.get("entries", [])
             results = []
             for e in entries:
+                vid_id = e.get("id")
+                if not vid_id:
+                    continue
                 results.append({
-                    "id": e.get("id"),
+                    "id": vid_id,
                     "title": e.get("title", "Unknown"),
                     "duration": e.get("duration", 0),
                     "views": e.get("view_count", 0),
                     "uploader": e.get("uploader", "Unknown"),
-                    "url": f"https://www.youtube.com/watch?v={e.get('id')}",
-                    "thumb": f"https://i.ytimg.com/vi/{e.get('id')}/hqdefault.jpg",
+                    "url": f"https://www.youtube.com/watch?v={vid_id}",
+                    "thumb": f"https://i.ytimg.com/vi/{vid_id}/hqdefault.jpg",
                     "release_date": e.get("upload_date", ""),
                 })
             return results
 
-    try:
-        return await loop.run_in_executor(None, _search)
-    except Exception as e:
-        logger.error(f"search_youtube error: {e}")
-        return []
+    for prefix in ("ytsearch", "ytmsearch"):
+        try:
+            results = await loop.run_in_executor(None, _search, prefix)
+            if results:
+                return results
+            logger.warning(f"No results with {prefix}, trying next...")
+        except Exception as e:
+            logger.warning(f"search [{prefix}] error: {e}")
+
+    logger.error(f"All search methods failed for: {query}")
+    return []
 
 
 async def extract_info(url_or_query: str, download: bool = True) -> dict | None:
