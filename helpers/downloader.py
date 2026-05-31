@@ -195,18 +195,64 @@ async def extract_info(url_or_query: str, download: bool = True) -> dict | None:
         return None
 
 
+async def get_stream_url(track: dict) -> str | None:
+    """Get direct stream URL without downloading — avoids IP blocks."""
+    loop = asyncio.get_event_loop()
+    url = track.get("url", "")
+    if not url:
+        return None
+
+    def _get_url():
+        opts = {
+            **_BASE_OPTS,
+            "format": "bestaudio/best",
+            "noplaylist": True,
+            "skip_download": True,
+        }
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            if "entries" in info:
+                info = info["entries"][0]
+            # Get the direct audio stream URL
+            formats = info.get("formats", [])
+            # Prefer audio-only formats
+            audio_formats = [f for f in formats if f.get("vcodec") == "none" and f.get("acodec") != "none"]
+            if audio_formats:
+                best = sorted(audio_formats, key=lambda f: f.get("tbr") or 0, reverse=True)[0]
+                return best.get("url", info.get("url", ""))
+            return info.get("url", "")
+
+    try:
+        stream_url = await loop.run_in_executor(None, _get_url)
+        if stream_url:
+            logger.info(f"Got stream URL for: {track.get('title')}")
+            return stream_url
+    except Exception as e:
+        logger.error(f"get_stream_url error: {e}")
+    return None
+
+
 async def download_track(track: dict) -> str | None:
+    # Check cache first
     cached = _cache_path(track.get("id", ""))
     if cached:
         logger.info(f"Cache hit: {track.get('title')}")
         return cached
 
-    logger.info(f"Downloading: {track.get('title')}")
+    # Try direct stream URL (no download needed)
+    stream_url = await get_stream_url(track)
+    if stream_url:
+        # Store stream URL in track for MediaStream to use directly
+        track["stream_url"] = stream_url
+        return stream_url
+
+    # Last resort: try full download
+    logger.info(f"Falling back to download: {track.get('title')}")
     info = await extract_info(track.get("url", track.get("title", "")), download=True)
     if info and info.get("file_path") and os.path.exists(info["file_path"]):
         return info["file_path"]
 
-    logger.error(f"Download failed: {track.get('title')}")
+    logger.error(f"All download methods failed: {track.get('title')}")
     return None
 
 
