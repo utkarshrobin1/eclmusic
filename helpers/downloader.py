@@ -27,12 +27,13 @@ _BASE_OPTS = {
 
 YTDLP_OPTS_AUDIO = {
     **_BASE_OPTS,
-    "format": "140/bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best/best",
+    "format": "140/251/250/249/171/bestaudio/best",
     "outtmpl": f"{CACHE_DIR}/%(id)s.%(ext)s",
     "noplaylist": True,
     "extractor_retries": 5,
     "fragment_retries": 5,
     "postprocessors": [],
+    "extractor_args": {"youtube": {"player_client": ["android"]}},
 }
 
 YTDLP_SEARCH_OPTS = {
@@ -110,9 +111,28 @@ async def search_ytmusicapi(query: str, limit: int = 5) -> list[dict]:
         if results:
             logger.info(f"ytmusicapi search OK: {len(results)} results")
             return results
+        logger.warning("ytmusicapi returned 0 results")
     except Exception as e:
         logger.warning(f"ytmusicapi search failed: {e}")
 
+    # Fallback to yt-dlp search
+    def _ytdlp_search(prefix):
+        opts = {**YTDLP_SEARCH_OPTS, "default_search": f"{prefix}{limit}"}
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            info = ydl.extract_info(query, download=False)
+            entries = info.get("entries", [])
+            return [_parse_entry(e) for e in entries if e.get("id")]
+
+    for prefix in ("ytsearch", "ytmsearch"):
+        try:
+            results = await loop.run_in_executor(None, _ytdlp_search, prefix)
+            if results:
+                logger.info(f"yt-dlp search [{prefix}] OK: {len(results)} results")
+                return results
+        except Exception as e:
+            logger.warning(f"yt-dlp search [{prefix}] failed: {e}")
+
+    logger.error(f"All search methods failed for: {query}")
     return []
 
 
@@ -205,7 +225,7 @@ async def get_stream_url(track: dict) -> str | None:
     def _get_url():
         opts = {
             **_BASE_OPTS,
-            "format": "140/bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best/best",
+            "format": "140/251/250/249/171/bestaudio/best",
             "noplaylist": True,
             "skip_download": True,
             "extractor_args": {"youtube": {"player_client": ["android"]}},
