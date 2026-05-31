@@ -134,10 +134,13 @@ async def _stream_track(chat_id: int, track: dict, session: dict):
         await _play_next(chat_id)
         return
 
+    # Use stream URL directly if available (avoids IP blocks)
+    audio_path = track.get("stream_url") or file_path
+
     has_effects = any(v for k, v in effects.items() if k != "volume" or v != 100)
-    if has_effects:
+    if has_effects and not audio_path.startswith("http"):
         audio_path = await apply_effects(file_path, effects)
-    else:
+    elif not audio_path.startswith("http"):
         audio_path = await convert_to_raw(file_path)
 
     try:
