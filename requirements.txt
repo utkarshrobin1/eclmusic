@@ -5,6 +5,7 @@ motor==3.4.0
 pymongo==4.7.2
 redis[hiredis]==5.0.4
 yt-dlp
+ytmusicapi
 aiohttp==3.9.5
 Pillow==10.3.0
 lyricsgenius==3.0.1
