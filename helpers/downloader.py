@@ -1,7 +1,6 @@
 import asyncio
 import os
 import re
-import hashlib
 from pathlib import Path
 import yt_dlp
 from config import CACHE_DIR, MAX_CACHE_SIZE_MB
@@ -13,16 +12,22 @@ YTDLP_OPTS_AUDIO = {
     "noplaylist": True,
     "quiet": True,
     "no_warnings": True,
-    "postprocessors": [],
     "socket_timeout": 30,
-    "retries": 3,
+    "retries": 5,
     "geo_bypass": True,
     "nocheckcertificate": True,
-    "user_agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/124.0.0.0 Safari/537.36"
-    ),
+    "extractor_retries": 5,
+    "fragment_retries": 5,
+    "skip_unavailable_fragments": True,
+    "ignoreerrors": False,
+    "source_address": "0.0.0.0",
+    "http_headers": {
+        "User-Agent": "Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    },
+    # Use piped/invidious as fallback if direct YouTube fails
+    "postprocessors": [],
 }
 
 YTDLP_SEARCH_OPTS = {
@@ -31,6 +36,9 @@ YTDLP_SEARCH_OPTS = {
     "noplaylist": True,
     "extract_flat": "in_playlist",
     "skip_download": True,
+    "http_headers": {
+        "User-Agent": "Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36",
+    },
 }
 
 
@@ -79,7 +87,11 @@ async def search_youtube(query: str, limit: int = 5) -> list[dict]:
                 })
             return results
 
-    return await loop.run_in_executor(None, _search)
+    try:
+        return await loop.run_in_executor(None, _search)
+    except Exception as e:
+        logger.error(f"search_youtube error: {e}")
+        return []
 
 
 async def extract_info(url_or_query: str, download: bool = True) -> dict | None:
@@ -101,9 +113,17 @@ async def extract_info(url_or_query: str, download: bool = True) -> dict | None:
 
         video_id = info.get("id", "")
         cached = _cache_path(video_id)
-        file_path = cached if cached else info.get("requested_downloads", [{}])[0].get("filepath", "")
-        if not file_path and download:
-            file_path = os.path.join(CACHE_DIR, f"{video_id}.{info.get('ext','webm')}")
+
+        if cached:
+            file_path = cached
+        elif download:
+            # Find downloaded file
+            requested = info.get("requested_downloads", [{}])
+            file_path = requested[0].get("filepath", "") if requested else ""
+            if not file_path:
+                file_path = os.path.join(CACHE_DIR, f"{video_id}.{info.get('ext','webm')}")
+        else:
+            file_path = ""
 
         _manage_cache()
 
@@ -119,7 +139,7 @@ async def extract_info(url_or_query: str, download: bool = True) -> dict | None:
             "file_path": file_path,
             "release_date": info.get("upload_date", ""),
             "genre": info.get("genre", ""),
-            "description": info.get("description", "")[:200],
+            "description": (info.get("description", "") or "")[:200],
         }
     except Exception as e:
         logger.error(f"extract_info error: {e}")
@@ -152,15 +172,27 @@ async def extract_playlist(url: str, max_tracks: int = 50) -> list[dict]:
                 })
             return results
 
-    return await loop.run_in_executor(None, _extract)
+    try:
+        return await loop.run_in_executor(None, _extract)
+    except Exception as e:
+        logger.error(f"extract_playlist error: {e}")
+        return []
 
 
 async def download_track(track: dict) -> str | None:
+    # Check cache first
     cached = _cache_path(track.get("id", ""))
     if cached:
+        logger.info(f"Cache hit: {track.get('title')}")
         return cached
+
+    logger.info(f"Downloading: {track.get('title')}")
     info = await extract_info(track.get("url", track.get("title", "")), download=True)
-    return info.get("file_path") if info else None
+    if info and info.get("file_path") and os.path.exists(info["file_path"]):
+        return info["file_path"]
+
+    logger.error(f"Download failed for: {track.get('title')} | url: {track.get('url')}")
+    return None
 
 
 async def spotify_to_youtube(spotify_url: str) -> dict | None:
