@@ -235,7 +235,7 @@ async def cmd_normalize(client: Client, msg: Message):
 async def cmd_speed(client: Client, msg: Message):
     args = msg.command[1:]
     if not args:
-        await msg.reply("Usage: `/speed <0.5-2.0>` (e.g. `/speed 1.5`)")
+        await msg.reply("Usage: '/speed <0.5-2.0>' (e.g. '/speed 1.5')")
         return
     try:
         speed = float(args[0])
@@ -257,7 +257,7 @@ async def cmd_speed(client: Client, msg: Message):
 async def cmd_pitch(client: Client, msg: Message):
     args = msg.command[1:]
     if not args:
-        await msg.reply("Usage: `/pitch <-12 to 12>` semitones (e.g. `/pitch 2`)")
+        await msg.reply("Usage: '/pitch <-12 to 12>' semitones (e.g. '/pitch 2')")
         return
     try:
         semitones = float(args[0])
@@ -280,7 +280,7 @@ async def cmd_eq(client: Client, msg: Message):
     args = msg.command[1:]
     if not args:
         presets = ", ".join(f"`{p}`" for p in EQ_PRESETS.keys())
-        await msg.reply(f"🎵 **EQ Presets:** {presets}\nUsage: `/eq <preset>`")
+        await msg.reply(f"🎵 **EQ Presets:** {presets}\nUsage: '/eq <preset>'")
         return
     preset = args[0].lower()
     if preset not in EQ_PRESETS:

@@ -184,7 +184,7 @@ async def cmd_play(client: Client, msg: Message):
     query = " ".join(msg.command[1:])
 
     if not query and not msg.reply_to_message:
-        await msg.reply("Usage: `/play <song name or URL>`")
+        await msg.reply("Usage: /play <song name or URL>", quote=True)
         return
 
     # Handle file reply
@@ -301,7 +301,7 @@ async def _load_playlist(client: Client, msg: Message, url: str, progress_msg):
 async def cmd_vplay(client: Client, msg: Message):
     query = " ".join(msg.command[1:])
     if not query:
-        await msg.reply("Usage: `/vplay <song name or URL>`")
+        await msg.reply("Usage: /vplay <song name or URL>")
         return
     searching = await msg.reply(f"🎬 Searching video for **{query}**...")
     results = await search_youtube(query, 1)
@@ -331,7 +331,7 @@ async def cmd_vplay(client: Client, msg: Message):
 async def cmd_radio(client: Client, msg: Message):
     args = msg.command[1:]
     if not args:
-        await msg.reply("Usage: `/radio <stream URL>`\nSupports Icecast, HLS, MP3 streams.")
+        await msg.reply("Usage: /radio <stream URL>\nSupports Icecast, HLS, MP3 streams.")
         return
     url = args[0]
     track = {
@@ -432,7 +432,7 @@ async def cmd_volume(client: Client, msg: Message):
     if not args or not args[0].isdigit():
         session = await get_session(msg.chat.id)
         vol = session.get("volume", DEFAULT_VOLUME)
-        await msg.reply(f"🔊 Current volume: **{vol}%**\nUsage: `/vol <1-200>`")
+        await msg.reply(f"🔊 Current volume: **{vol}%**\nUsage: /vol <1-200>")
         return
     vol = max(1, min(200, int(args[0])))
     session = await get_session(msg.chat.id)

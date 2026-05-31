@@ -89,11 +89,11 @@ async def cb_settings(client, cq):
     elif action == "autoleave":
         await cq.answer()
         await cq.message.reply(
-            "⏰ Send new auto-leave delay in seconds (e.g. `300` = 5 minutes):",
+            "⏰ Send new auto-leave delay in seconds (e.g. '300' = 5 minutes):",
         )
     elif action == "votepcnt":
         await cq.answer()
-        await cq.message.reply("🗳 Send new vote-skip percentage (e.g. `51` for 51%):")
+        await cq.message.reply("🗳 Send new vote-skip percentage (e.g. '51' for 51%):")
 
 
 @bot.on_callback_query(filters.regex(r"^lang_(.+)$"))
@@ -222,17 +222,17 @@ async def cmd_unblacklist_user(client: Client, msg: Message):
 async def cmd_blacklist_word(client: Client, msg: Message):
     args = msg.command[1:]
     if not args:
-        await msg.reply("Usage: `/blword <word>`")
+        await msg.reply("Usage: '/blword <word>'")
         return
     word = args[0].lower()
     settings = await get_group_settings(msg.chat.id)
     bw = settings.get("blacklisted_words", [])
     if word in bw:
-        await msg.reply(f"🚫 `{word}` is already blacklisted.")
+        await msg.reply(f"🚫 '{word}' is already blacklisted.")
         return
     bw.append(word)
     await update_group_settings(msg.chat.id, {"blacklisted_words": bw})
-    await msg.reply(f"🚫 Word `{word}` added to blacklist.")
+    await msg.reply(f"🚫 Word '{word}' added to blacklist.")
 
 
 @bot.on_message(filters.command(["unblword"]) & filters.group)
@@ -240,17 +240,17 @@ async def cmd_blacklist_word(client: Client, msg: Message):
 async def cmd_unblacklist_word(client: Client, msg: Message):
     args = msg.command[1:]
     if not args:
-        await msg.reply("Usage: `/unblword <word>`")
+        await msg.reply("Usage: '/unblword <word>'")
         return
     word = args[0].lower()
     settings = await get_group_settings(msg.chat.id)
     bw = settings.get("blacklisted_words", [])
     if word not in bw:
-        await msg.reply(f"❌ `{word}` is not blacklisted.")
+        await msg.reply(f"❌ '{word}' is not blacklisted.")
         return
     bw.remove(word)
     await update_group_settings(msg.chat.id, {"blacklisted_words": bw})
-    await msg.reply(f"✅ Word `{word}` removed from blacklist.")
+    await msg.reply(f"✅ Word '{word}' removed from blacklist.")
 
 
 # ─── Stats Dashboard ──────────────────────────────────────────────────────────
@@ -268,7 +268,7 @@ async def cmd_bot_stats(client: Client, msg: Message):
     total = await get_total_chats()
     await msg.reply(
         f"📊 **Elite Musico Bot Stats**\n\n"
-        f"🏠 Total groups: `{total}`\n"
+        f"🏠 Total groups: '{total}'\n"
     )
 
 
@@ -279,7 +279,7 @@ async def cmd_bot_stats(client: Client, msg: Message):
 async def cmd_broadcast(client: Client, msg: Message):
     text = " ".join(msg.command[1:])
     if not text and not msg.reply_to_message:
-        await msg.reply("Usage: `/broadcast <message>` or reply to a message.")
+        await msg.reply("Usage: '/broadcast <message>' or reply to a message.")
         return
     if msg.reply_to_message:
         text = msg.reply_to_message.text or msg.reply_to_message.caption or text
@@ -326,7 +326,7 @@ async def cmd_audit_log(client: Client, msg: Message):
 async def cmd_autoleave(client: Client, msg: Message):
     args = msg.command[1:]
     if not args or not args[0].isdigit():
-        await msg.reply("Usage: `/autoleave <seconds>` (0 = disable)")
+        await msg.reply("Usage: '/autoleave <seconds>' (0 = disable)")
         return
     delay = int(args[0])
     await update_group_settings(msg.chat.id, {"auto_leave_delay": delay})
@@ -344,8 +344,8 @@ async def cmd_schedule(client: Client, msg: Message):
     args = msg.command[1:]
     if len(args) < 2:
         await msg.reply(
-            "Usage: `/schedule <HH:MM> <song name>`\n"
-            "Example: `/schedule 20:00 Blinding Lights`"
+            "Usage: '/schedule <HH:MM> <song name>'\n"
+            "Example: '/schedule 20:00 Blinding Lights'"
         )
         return
     time_str = args[0]
@@ -359,8 +359,8 @@ async def cmd_schedule(client: Client, msg: Message):
         if sched < now:
             sched += timedelta(days=1)
     except ValueError:
-        await msg.reply("❌ Invalid time format. Use `HH:MM` (24h).")
+        await msg.reply("❌ Invalid time format. Use 'HH:MM' (24h).")
         return
     uid = msg.from_user.id if msg.from_user else 0
     await add_scheduled(msg.chat.id, sched, query, uid)
-    await msg.reply(f"📅 Scheduled **{query}** for `{time_str}` UTC.")
+    await msg.reply(f"📅 Scheduled **{query}** for '{time_str}' UTC.")

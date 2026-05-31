@@ -29,7 +29,7 @@ from core.logger import logger
 async def cmd_search(client: Client, msg: Message):
     query = " ".join(msg.command[1:])
     if not query:
-        await msg.reply("Usage: `/search <song name>`")
+        await msg.reply("Usage: '/search <song name>'")
         return
     progress = await msg.reply(f"🔍 Searching for **{query}**...")
     results = await search_youtube(query, 5)
@@ -244,7 +244,7 @@ async def cmd_lyrics(client: Client, msg: Message):
     else:
         track = await get_now_playing(msg.chat.id)
         if not track:
-            await msg.reply("Usage: `/lyrics <song name>` or use while playing.")
+            await msg.reply("Usage: '/lyrics <song name>' or use while playing.")
             return
         query = track.get("title", "")
 
@@ -280,7 +280,7 @@ async def cmd_recognize(client: Client, msg: Message):
         return
     from config import ACRCLOUD_HOST, ACRCLOUD_KEY, ACRCLOUD_SECRET
     if not ACRCLOUD_HOST:
-        await msg.reply("⚠️ ACRCloud not configured. Add `ACRCLOUD_*` vars to `.env`.")
+        await msg.reply("⚠️ ACRCloud not configured. Add 'ACRCLOUD_*' vars to '.env'.")
         return
     progress = await msg.reply("🎙️ Identifying track...")
     try:

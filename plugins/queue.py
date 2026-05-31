@@ -58,7 +58,7 @@ async def cb_queue_page(client: Client, cq):
 async def cmd_play_next(client: Client, msg: Message):
     query = " ".join(msg.command[1:])
     if not query:
-        await msg.reply("Usage: `/pn <song name>`")
+        await msg.reply("Usage: '/pn <song name>'")
         return
     results = await search_youtube(query, 1)
     if not results:
@@ -77,7 +77,7 @@ async def cmd_play_next(client: Client, msg: Message):
 async def cmd_remove(client: Client, msg: Message):
     args = msg.command[1:]
     if not args or not args[0].isdigit():
-        await msg.reply("Usage: `/remove <position>`")
+        await msg.reply("Usage: '/remove <position>'")
         return
     pos = int(args[0]) - 1
     track = await remove_from_queue(msg.chat.id, pos)
@@ -99,7 +99,7 @@ async def cmd_clear_queue(client: Client, msg: Message):
 async def cmd_reorder(client: Client, msg: Message):
     args = msg.command[1:]
     if len(args) < 2 or not all(a.isdigit() for a in args[:2]):
-        await msg.reply("Usage: `/reorder <from_pos> <to_pos>`")
+        await msg.reply("Usage: '/reorder <from_pos> <to_pos>'")
         return
     from_pos = int(args[0]) - 1
     to_pos = int(args[1]) - 1
@@ -115,7 +115,7 @@ async def cmd_reorder(client: Client, msg: Message):
 async def cmd_jump(client: Client, msg: Message):
     args = msg.command[1:]
     if not args or not args[0].isdigit():
-        await msg.reply("Usage: `/jump <position>`")
+        await msg.reply("Usage: '/jump <position>'")
         return
     pos = int(args[0]) - 1
     queue = await get_queue(msg.chat.id)
@@ -142,7 +142,7 @@ async def cmd_jump(client: Client, msg: Message):
 async def cmd_save_playlist(client: Client, msg: Message):
     args = msg.command[1:]
     if not args:
-        await msg.reply("Usage: `/saveplaylist <name>`")
+        await msg.reply("Usage: '/saveplaylist <name>'")
         return
     name = args[0]
     queue = await get_queue(msg.chat.id)
