@@ -27,7 +27,7 @@ _BASE_OPTS = {
 
 YTDLP_OPTS_AUDIO = {
     **_BASE_OPTS,
-    "format": "bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio/best",
+    "format": "140/bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best/best",
     "outtmpl": f"{CACHE_DIR}/%(id)s.%(ext)s",
     "noplaylist": True,
     "extractor_retries": 5,
@@ -205,10 +205,10 @@ async def get_stream_url(track: dict) -> str | None:
     def _get_url():
         opts = {
             **_BASE_OPTS,
-            "format": "bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio/best",
+            "format": "140/bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best/best",
             "noplaylist": True,
             "skip_download": True,
-            "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
+            "extractor_args": {"youtube": {"player_client": ["android"]}},
         }
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(url, download=False)
