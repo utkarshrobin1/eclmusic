@@ -6,46 +6,40 @@ import yt_dlp
 from config import CACHE_DIR, MAX_CACHE_SIZE_MB
 from core.logger import logger
 
-import os as _os
-
-# Use cookies.txt if present (helps bypass YouTube IP blocks on servers)
 _COOKIES_FILE = "cookies.txt"
-_COOKIES = _COOKIES_FILE if _os.path.exists(_COOKIES_FILE) else None
+_COOKIES = _COOKIES_FILE if os.path.exists(_COOKIES_FILE) else None
 
 _COMMON_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36",
     "Accept-Language": "en-US,en;q=0.9",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+}
+
+_BASE_OPTS = {
+    "quiet": True,
+    "no_warnings": True,
+    "nocheckcertificate": True,
+    "geo_bypass": True,
+    "socket_timeout": 30,
+    "retries": 5,
+    "http_headers": _COMMON_HEADERS,
+    **({"cookiefile": _COOKIES} if _COOKIES else {}),
 }
 
 YTDLP_OPTS_AUDIO = {
+    **_BASE_OPTS,
     "format": "bestaudio/best",
     "outtmpl": f"{CACHE_DIR}/%(id)s.%(ext)s",
     "noplaylist": True,
-    "quiet": True,
-    "no_warnings": True,
-    "socket_timeout": 30,
-    "retries": 5,
-    "geo_bypass": True,
-    "nocheckcertificate": True,
     "extractor_retries": 5,
     "fragment_retries": 5,
-    "skip_unavailable_fragments": True,
-    "ignoreerrors": False,
-    "source_address": "0.0.0.0",
-    "http_headers": _COMMON_HEADERS,
     "postprocessors": [],
-    **({"cookiefile": _COOKIES} if _COOKIES else {}),
 }
 
 YTDLP_SEARCH_OPTS = {
-    "quiet": True,
-    "no_warnings": True,
+    **_BASE_OPTS,
     "noplaylist": True,
     "extract_flat": "in_playlist",
     "skip_download": True,
-    "http_headers": _COMMON_HEADERS,
-    **({"cookiefile": _COOKIES} if _COOKIES else {}),
 }
 
 
@@ -69,42 +63,82 @@ def _manage_cache():
         oldest = files.pop(0)
         total_mb -= oldest.stat().st_size / (1024 * 1024)
         oldest.unlink(missing_ok=True)
-        logger.debug(f"Cache evicted: {oldest.name}")
+
+
+def _parse_entry(e: dict) -> dict:
+    vid_id = e.get("id", "")
+    return {
+        "id": vid_id,
+        "title": e.get("title", "Unknown"),
+        "duration": e.get("duration", 0),
+        "views": e.get("view_count", 0),
+        "uploader": e.get("uploader") or e.get("channel", "Unknown"),
+        "url": f"https://www.youtube.com/watch?v={vid_id}",
+        "thumb": f"https://i.ytimg.com/vi/{vid_id}/hqdefault.jpg",
+        "release_date": e.get("upload_date", ""),
+    }
+
+
+async def search_ytmusicapi(query: str, limit: int = 5) -> list[dict]:
+    """Search using ytmusicapi — not rate-limited like yt-dlp search."""
+    loop = asyncio.get_event_loop()
+
+    def _search():
+        from ytmusicapi import YTMusic
+        yt = YTMusic()
+        results = yt.search(query, filter="songs", limit=limit)
+        tracks = []
+        for r in results[:limit]:
+            vid_id = r.get("videoId", "")
+            if not vid_id:
+                continue
+            duration_raw = r.get("duration_seconds") or 0
+            tracks.append({
+                "id": vid_id,
+                "title": r.get("title", "Unknown"),
+                "duration": duration_raw,
+                "views": 0,
+                "uploader": r.get("artists", [{}])[0].get("name", "Unknown") if r.get("artists") else "Unknown",
+                "url": f"https://www.youtube.com/watch?v={vid_id}",
+                "thumb": f"https://i.ytimg.com/vi/{vid_id}/hqdefault.jpg",
+                "release_date": "",
+            })
+        return tracks
+
+    try:
+        results = await loop.run_in_executor(None, _search)
+        if results:
+            logger.info(f"ytmusicapi search OK: {len(results)} results")
+            return results
+    except Exception as e:
+        logger.warning(f"ytmusicapi search failed: {e}")
+
+    return []
 
 
 async def search_youtube(query: str, limit: int = 5) -> list[dict]:
     loop = asyncio.get_event_loop()
 
+    # Try ytmusicapi first (no IP blocking)
+    results = await search_ytmusicapi(query, limit)
+    if results:
+        return results
+
+    # Fallback to yt-dlp search
     def _search(prefix):
         opts = {**YTDLP_SEARCH_OPTS, "default_search": f"{prefix}{limit}"}
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(query, download=False)
             entries = info.get("entries", [])
-            results = []
-            for e in entries:
-                vid_id = e.get("id")
-                if not vid_id:
-                    continue
-                results.append({
-                    "id": vid_id,
-                    "title": e.get("title", "Unknown"),
-                    "duration": e.get("duration", 0),
-                    "views": e.get("view_count", 0),
-                    "uploader": e.get("uploader", "Unknown"),
-                    "url": f"https://www.youtube.com/watch?v={vid_id}",
-                    "thumb": f"https://i.ytimg.com/vi/{vid_id}/hqdefault.jpg",
-                    "release_date": e.get("upload_date", ""),
-                })
-            return results
+            return [_parse_entry(e) for e in entries if e.get("id")]
 
     for prefix in ("ytsearch", "ytmsearch"):
         try:
             results = await loop.run_in_executor(None, _search, prefix)
             if results:
                 return results
-            logger.warning(f"No results with {prefix}, trying next...")
         except Exception as e:
-            logger.warning(f"search [{prefix}] error: {e}")
+            logger.warning(f"yt-dlp search [{prefix}] failed: {e}")
 
     logger.error(f"All search methods failed for: {query}")
     return []
@@ -133,7 +167,6 @@ async def extract_info(url_or_query: str, download: bool = True) -> dict | None:
         if cached:
             file_path = cached
         elif download:
-            # Find downloaded file
             requested = info.get("requested_downloads", [{}])
             file_path = requested[0].get("filepath", "") if requested else ""
             if not file_path:
@@ -162,6 +195,21 @@ async def extract_info(url_or_query: str, download: bool = True) -> dict | None:
         return None
 
 
+async def download_track(track: dict) -> str | None:
+    cached = _cache_path(track.get("id", ""))
+    if cached:
+        logger.info(f"Cache hit: {track.get('title')}")
+        return cached
+
+    logger.info(f"Downloading: {track.get('title')}")
+    info = await extract_info(track.get("url", track.get("title", "")), download=True)
+    if info and info.get("file_path") and os.path.exists(info["file_path"]):
+        return info["file_path"]
+
+    logger.error(f"Download failed: {track.get('title')}")
+    return None
+
+
 async def extract_playlist(url: str, max_tracks: int = 50) -> list[dict]:
     loop = asyncio.get_event_loop()
 
@@ -174,41 +222,13 @@ async def extract_playlist(url: str, max_tracks: int = 50) -> list[dict]:
         }
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(url, download=False)
-            entries = info.get("entries", [])
-            results = []
-            for e in entries:
-                results.append({
-                    "id": e.get("id"),
-                    "title": e.get("title", "Unknown"),
-                    "duration": e.get("duration", 0),
-                    "url": f"https://www.youtube.com/watch?v={e.get('id')}",
-                    "thumb": f"https://i.ytimg.com/vi/{e.get('id')}/hqdefault.jpg",
-                    "uploader": e.get("uploader", "Unknown"),
-                    "views": e.get("view_count", 0),
-                })
-            return results
+            return [_parse_entry(e) for e in info.get("entries", []) if e.get("id")]
 
     try:
         return await loop.run_in_executor(None, _extract)
     except Exception as e:
         logger.error(f"extract_playlist error: {e}")
         return []
-
-
-async def download_track(track: dict) -> str | None:
-    # Check cache first
-    cached = _cache_path(track.get("id", ""))
-    if cached:
-        logger.info(f"Cache hit: {track.get('title')}")
-        return cached
-
-    logger.info(f"Downloading: {track.get('title')}")
-    info = await extract_info(track.get("url", track.get("title", "")), download=True)
-    if info and info.get("file_path") and os.path.exists(info["file_path"]):
-        return info["file_path"]
-
-    logger.error(f"Download failed for: {track.get('title')} | url: {track.get('url')}")
-    return None
 
 
 async def spotify_to_youtube(spotify_url: str) -> dict | None:
