@@ -1,7 +1,6 @@
 """Elite Musico — Main entry point."""
 import asyncio
 import importlib
-import signal
 
 from core.client import bot, userbot, call_py, start_clients, stop_clients
 from core.database import connect_db, disconnect_db
@@ -46,22 +45,15 @@ async def main():
 
     me = await bot.get_me()
     logger.info(f"Bot started as @{me.username} ({me.id})")
-    logger.info(f"{BOT_NAME} is ready! Press Ctrl+C to stop.")
+    logger.info(f"{BOT_NAME} is ready!")
 
-    stop_event = asyncio.Event()
-
-    loop = asyncio.get_event_loop()
-    for sig in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(sig, stop_event.set)
-
-    await stop_event.wait()
-
-    logger.info("Shutting down...")
-    await stop_clients()
-    await disconnect_db()
-    await disconnect_redis()
-    logger.info(f"{BOT_NAME} stopped cleanly.")
+    # Keep running forever until cancelled
+    while True:
+        await asyncio.sleep(3600)
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except (KeyboardInterrupt, SystemExit):
+        pass
