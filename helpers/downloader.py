@@ -32,7 +32,7 @@ _BASE_OPTS = {
 
 YTDLP_OPTS_AUDIO = {
     **_BASE_OPTS,
-    "format": "140/251/250/249/171/bestaudio/best",
+    "format": "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best",
     "outtmpl": f"{CACHE_DIR}/%(id)s.%(ext)s",
     "noplaylist": True,
     "extractor_retries": 5,
@@ -235,7 +235,7 @@ async def get_stream_url(track: dict) -> str | None:
     def _get_url(player_clients: list):
         opts = {
             **_BASE_OPTS,
-            "format": "140/251/250/249/171/bestaudio/best",
+            "format": "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best",
             "noplaylist": True,
             "skip_download": True,
             "extractor_args": {
