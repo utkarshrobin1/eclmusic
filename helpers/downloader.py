@@ -9,6 +9,11 @@ from core.logger import logger
 _COOKIES_FILE = "cookies.txt"
 _COOKIES = _COOKIES_FILE if os.path.exists(_COOKIES_FILE) else None
 
+if _COOKIES:
+    logger.info(f"[Downloader] cookies.txt FOUND at {os.path.abspath(_COOKIES_FILE)}")
+else:
+    logger.warning("[Downloader] cookies.txt NOT FOUND — yt-dlp running without cookies!")
+
 _COMMON_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36",
     "Accept-Language": "en-US,en;q=0.9",
@@ -33,7 +38,12 @@ YTDLP_OPTS_AUDIO = {
     "extractor_retries": 5,
     "fragment_retries": 5,
     "postprocessors": [],
-    "extractor_args": {"youtube": {"player_client": ["android"]}},
+    "extractor_args": {
+        "youtube": {
+            "player_client": ["tv_embedded", "web", "android", "ios"],
+            "player_skip": ["webpage", "configs"],
+        }
+    },
 }
 
 YTDLP_SEARCH_OPTS = {
@@ -211,7 +221,7 @@ async def extract_info(url_or_query: str, download: bool = True) -> dict | None:
             "description": (info.get("description", "") or "")[:200],
         }
     except Exception as e:
-        logger.error(f"extract_info error: {e}")
+        logger.error(f"[ExtractInfo] error for '{url_or_query}': {e}", exc_info=True)
         return None
 
 
@@ -222,58 +232,70 @@ async def get_stream_url(track: dict) -> str | None:
     if not url:
         return None
 
-    def _get_url():
+    def _get_url(player_clients: list):
         opts = {
             **_BASE_OPTS,
             "format": "140/251/250/249/171/bestaudio/best",
             "noplaylist": True,
             "skip_download": True,
-            "extractor_args": {"youtube": {"player_client": ["android"]}},
+            "extractor_args": {
+                "youtube": {
+                    "player_client": player_clients,
+                    "player_skip": ["webpage", "configs"],
+                }
+            },
         }
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(url, download=False)
             if "entries" in info:
                 info = info["entries"][0]
-            # Get the direct audio stream URL
             formats = info.get("formats", [])
-            # Prefer audio-only formats
             audio_formats = [f for f in formats if f.get("vcodec") == "none" and f.get("acodec") != "none"]
             if audio_formats:
                 best = sorted(audio_formats, key=lambda f: f.get("tbr") or 0, reverse=True)[0]
                 return best.get("url", info.get("url", ""))
             return info.get("url", "")
 
-    try:
-        stream_url = await loop.run_in_executor(None, _get_url)
-        if stream_url:
-            logger.info(f"Got stream URL for: {track.get('title')}")
-            return stream_url
-    except Exception as e:
-        logger.error(f"get_stream_url error: {e}")
+    for clients in (["tv_embedded", "web"], ["android", "ios"]):
+        label = "+".join(clients)
+        try:
+            stream_url = await loop.run_in_executor(None, _get_url, clients)
+            if stream_url:
+                logger.info(f"[StreamURL] OK [{label}]: {track.get('title')}")
+                return stream_url
+            logger.warning(f"[StreamURL] Empty URL [{label}]: {track.get('title')}")
+        except Exception as e:
+            logger.warning(f"[StreamURL] Failed [{label}] for '{track.get('title')}': {e}", exc_info=True)
+
+    logger.error(f"[StreamURL] All player clients failed for: {track.get('title')}")
     return None
 
 
 async def download_track(track: dict) -> str | None:
+    title = track.get("title", "Unknown")
+
     # Check cache first
     cached = _cache_path(track.get("id", ""))
     if cached:
-        logger.info(f"Cache hit: {track.get('title')}")
+        logger.info(f"[Download] Cache hit: {title}")
         return cached
 
     # Try direct stream URL (no download needed)
+    logger.info(f"[Download] Fetching stream URL for: {title}")
     stream_url = await get_stream_url(track)
     if stream_url:
-        # Store stream URL in track for MediaStream to use directly
         track["stream_url"] = stream_url
+        logger.info(f"[Download] Using stream URL for: {title}")
         return stream_url
 
     # Last resort: try full download
-    logger.info(f"Falling back to download: {track.get('title')}")
+    logger.warning(f"[Download] Stream URL failed, falling back to full download: {title}")
     info = await extract_info(track.get("url", track.get("title", "")), download=True)
     if info and info.get("file_path") and os.path.exists(info["file_path"]):
+        logger.info(f"[Download] Full download OK: {title}")
         return info["file_path"]
 
-    logger.error(f"All download methods failed: {track.get('title')}")
+    logger.error(f"[Download] ALL methods failed for: {title}")
     return None
 
 
