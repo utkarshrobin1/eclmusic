@@ -304,12 +304,30 @@ async def download_track(track: dict) -> str | None:
         logger.info(f"[Download] Using stream URL for: {title}")
         return stream_url
 
-    # Last resort: try full download
-    logger.warning(f"[Download] Stream URL failed, falling back to full download: {title}")
-    info = await extract_info(track.get("url", track.get("title", "")), download=True)
+    # Fallback 1: try full download via original URL
+    logger.warning(f"[Download] Stream URL failed, trying full download: {title}")
+    info = await extract_info(track.get("url", ""), download=True)
     if info and info.get("file_path") and os.path.exists(info["file_path"]):
         logger.info(f"[Download] Full download OK: {title}")
         return info["file_path"]
+    if info and info.get("stream_url"):
+        logger.info(f"[Download] Got stream_url from extract_info: {title}")
+        track["stream_url"] = info["stream_url"]
+        return info["stream_url"]
+
+    # Fallback 2: re-search by title to find a different upload of the same song
+    logger.warning(f"[Download] Original URL failed, re-searching by title: {title}")
+    alt_results = await search_ytmusicapi(title, limit=5)
+    original_id = track.get("id", "")
+    for alt in alt_results:
+        if alt.get("id") and alt["id"] != original_id:
+            logger.info(f"[Download] Trying alternate video {alt['id']} for: {title}")
+            alt_url = await get_stream_url(alt)
+            if alt_url:
+                track["stream_url"] = alt_url
+                track["id"] = alt["id"]
+                logger.info(f"[Download] Alternate video OK: {title}")
+                return alt_url
 
     logger.error(f"[Download] ALL methods failed for: {title}")
     return None
