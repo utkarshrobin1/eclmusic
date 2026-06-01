@@ -178,16 +178,25 @@ async def extract_info(url_or_query: str, download: bool = True) -> dict | None:
     loop = asyncio.get_event_loop()
     query = url_or_query if _is_url(url_or_query) else f"ytsearch1:{url_or_query}"
 
-    def _extract():
-        opts = {**YTDLP_OPTS_AUDIO, "noplaylist": True}
+    def _extract(fmt: str):
+        opts = {**YTDLP_OPTS_AUDIO, "noplaylist": True, "format": fmt}
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(query, download=download)
             if "entries" in info:
                 info = info["entries"][0]
             return info
 
+    info = None
+    for fmt in ("bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio", "bestaudio/best", "best"):
+        try:
+            info = await loop.run_in_executor(None, _extract, fmt)
+            if info:
+                logger.info(f"[ExtractInfo] OK with format '{fmt}': {query}")
+                break
+        except Exception as e:
+            logger.warning(f"[ExtractInfo] format '{fmt}' failed for '{query}': {e}")
+
     try:
-        info = await loop.run_in_executor(None, _extract)
         if not info:
             return None
 
@@ -232,10 +241,16 @@ async def get_stream_url(track: dict) -> str | None:
     if not url:
         return None
 
-    def _get_url(player_clients: list):
+    _FORMAT_ATTEMPTS = [
+        "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio",
+        "bestaudio/best",
+        "best",
+    ]
+
+    def _get_url(player_clients: list, fmt: str):
         opts = {
             **_BASE_OPTS,
-            "format": "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best",
+            "format": fmt,
             "noplaylist": True,
             "skip_download": True,
             "extractor_args": {
@@ -258,16 +273,17 @@ async def get_stream_url(track: dict) -> str | None:
 
     for clients in (["tv_embedded", "web"], ["android", "ios"]):
         label = "+".join(clients)
-        try:
-            stream_url = await loop.run_in_executor(None, _get_url, clients)
-            if stream_url:
-                logger.info(f"[StreamURL] OK [{label}]: {track.get('title')}")
-                return stream_url
-            logger.warning(f"[StreamURL] Empty URL [{label}]: {track.get('title')}")
-        except Exception as e:
-            logger.warning(f"[StreamURL] Failed [{label}] for '{track.get('title')}': {e}", exc_info=True)
+        for fmt in _FORMAT_ATTEMPTS:
+            try:
+                stream_url = await loop.run_in_executor(None, _get_url, clients, fmt)
+                if stream_url:
+                    logger.info(f"[StreamURL] OK [{label}] fmt='{fmt}': {track.get('title')}")
+                    return stream_url
+                logger.warning(f"[StreamURL] Empty URL [{label}] fmt='{fmt}': {track.get('title')}")
+            except Exception as e:
+                logger.warning(f"[StreamURL] Failed [{label}] fmt='{fmt}' for '{track.get('title')}': {e}")
 
-    logger.error(f"[StreamURL] All player clients failed for: {track.get('title')}")
+    logger.error(f"[StreamURL] All attempts failed for: {track.get('title')}")
     return None
 
 
